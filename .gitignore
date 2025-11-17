@@ -1,0 +1,33 @@
+# Build outputs
+build/
+dist/
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environment
+cmr_clean/
+venv/
+env/
+
+# Local automation scripts (contain tokens)
+update_release_auto.bat
+push_update.bat
+
+# User-generated outputs
+cmr_output/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# PyInstaller spec
+*.spec
+
+# Logs
+*.log
