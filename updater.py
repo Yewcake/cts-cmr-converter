@@ -19,7 +19,8 @@ UPDATE_CHECK_ENABLED = True
 NETWORK_SHARE_PATH = r"\\cts-server\software\CMR_Converter\version.json"
 
 # Option 2: GitHub (for public releases)
-GITHUB_REPO = "your-username/cts-cmr-converter"  # Change this!
+GITHUB_REPO = "yewcake/cts-cmr-converter"
+GITHUB_TOKEN = "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"
 
 # Option 3: Web server
 WEB_SERVER_URL = "https://yourserver.com/cmr_converter/version.json"
