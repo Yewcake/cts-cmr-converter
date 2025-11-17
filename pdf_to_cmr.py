@@ -400,6 +400,14 @@ class CMRExcelPopulator:
         print(f"       B={self.ws.column_dimensions['B'].width} ← MAIN COLUMN")
         print(f"  Matches working template!")
         
+        # Apply font size 13 to all cells
+        print("  [FINAL] Applying font size 13...")
+        default_font = Font(name='Arial', size=13)
+        for row in self.ws.iter_rows():
+            for cell in row:
+                if cell.value:
+                    cell.font = default_font
+        
         self.wb.save(output_path)
         print(f"✓ CMR saved: {output_path}")
     
