@@ -242,17 +242,19 @@ class PackingListExtractor:
         
         if 'dimensions' not in box: print(f"      ⚠ No dimensions found")
         
-        # Extract gross weight
+        # Extract gross weight (handles commas: 1,234 KG)
         weight_patterns = [
-            r'Gross\s*weight[:\s]+(\d+)\s*KG',
-            r'Gross[:\s]+(\d+)\s*KG',
-            r'(\d+)\s*KG.*gross',
+            r'Gross\s*weight[:\s]+([\d,]+)\s*KG',
+            r'Gross[:\s]+([\d,]+)\s*KG',
+            r'([\d,]+)\s*KG.*gross',
         ]
         
         for pattern in weight_patterns:
             gross_weight_match = re.search(pattern, text, re.IGNORECASE)
             if gross_weight_match:
-                weight = int(gross_weight_match.group(1))
+                # Remove commas before converting to int
+                weight_str = gross_weight_match.group(1).replace(',', '')
+                weight = int(weight_str)
                 box['gross_weight'] = f"{weight} KG"
                 box['gross_weight_kg'] = weight
                 print(f"      Weight: {weight} KG")
