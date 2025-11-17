@@ -10,7 +10,7 @@ from typing import Optional, Dict
 from packaging import version as ver
 
 # Current version
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 
 # Update sources (configure based on your setup)
 UPDATE_CHECK_ENABLED = True

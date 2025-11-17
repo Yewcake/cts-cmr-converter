@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """
-PDF Packing List to CMR Excel Converter - FINAL VERIFIED SCRIPT
-Reads ALL pages and aggregates all boxes/pallets
-Uses correct cell locations (C28, C32, C36, B28) per user template.
-*** FIX: Crops page AND uses a simple 5-line limit. ***
+PDF Packing List to CMR Excel Converter - FIXED VERSION
+Fixed Issues:
+1. Font size increased to 13
+2. B20 no longer shows packing list details
+3. H37 shows customer ref only (was already correct)
+4. B69 cleared (was showing formula)
+5. B85 hardcoded to "CTS Netherlands BV"
+6. Weight parsing handles commas (1,234 KG)
 """
 
 import re
@@ -357,12 +361,12 @@ class CMRExcelPopulator:
             # Merge row 11 (empty box)
             self.ws.merge_cells('B11:C11')
             
-            # Merge consignee cells (B16:C20) - UPDATED ROWS
+            # Merge consignee cells (B16:C19) - FIXED: Don't merge B20!
             self.ws.merge_cells('B16:C16')  # Company name
             self.ws.merge_cells('B17:C17')  # Address line 1
             self.ws.merge_cells('B18:C18')  # Address line 2
-            self.ws.merge_cells('B19:C19')  # City
-            self.ws.merge_cells('B20:C20')  # Country
+            self.ws.merge_cells('B19:C19')  # City/Country
+            # B20 is NOT merged or used anymore!
             
             # Merge city formula cell
             self.ws.merge_cells('B26:C26')
@@ -497,6 +501,14 @@ class CMRExcelPopulator:
     def _apply_column_widths(self):
         """Apply column widths to worksheet - explicit settings"""
         print(f"  DEBUG: Setting column widths...")
+        
+        # FIX 1: Apply larger font size to all cells FIRST
+        default_font = Font(name='Arial', size=13)
+        for row in self.ws.iter_rows():
+            for cell in row:
+                if cell.value:
+                    cell.font = default_font
+        print(f"  ✓ Applied font size 13 to all cells")
         
         # Set column A - LEFT MARGIN SPACER
         self.ws.column_dimensions['A'].width = 18  # As per working template
@@ -637,13 +649,13 @@ class CMRExcelPopulator:
         self.ws['B33'] = '=B8'
         print(f"    Writing B33 (formula): =B8")
         
-        # B69: Formula - copy of sender address (B8) for footer
-        self.ws['B69'] = '=B8'
-        print(f"    Writing B69 (formula): =B8")
+        # FIX 4: B69 cleared (was showing formula)
+        self.ws['B69'] = ""
+        print(f"    Writing B69: (cleared)")
         
-        # B85: Formula - copy of sender address (B8) for bottom
-        self.ws['B85'] = '=B8'
-        print(f"    Writing B85 (formula): =B8")
+        # FIX 5: B85 hardcoded
+        self.ws['B85'] = "CTS Netherlands BV"
+        print(f"    Writing B85: CTS Netherlands BV")
         
         # G33/H33: Delivery terms (MOVED from G26)
         self.ws['G33'] = "Delivery term"
@@ -660,7 +672,7 @@ class CMRExcelPopulator:
         if data.get('our_ref'):
             self.ws['H35'] = f"CTS-{data['our_ref']}"
         
-        # G37/H37: Customer ref (MOVED from G30)
+        # FIX 3: G37/H37: Customer ref (already correct!)
         self.ws['G37'] = "Customer ref"
         if data.get('your_ref'):
             self.ws['H37'] = data['your_ref']
@@ -678,7 +690,7 @@ class CMRExcelPopulator:
         self.ws['B8'] = "2993 LW BARENDRECHT, NL"
     
     def _populate_consignee_section(self, consignee: Dict):
-        """Populate consignee address - ROWS 16-20"""
+        """Populate consignee address - ROWS 16-19 (NOT 20!)"""
         
         if not consignee:
             print("    ⚠ Consignee is empty or None! Writing nothing.")
@@ -718,8 +730,9 @@ class CMRExcelPopulator:
                 self.ws[f'B{row}'] = value
                 row += 1
                 
-                # Safety limit - don't write beyond row 20
-                if row > 20:
+                # FIX 2: Safety limit - stop at row 19, DON'T write to row 20
+                if row >= 20:
+                    print(f"    ✓ Stopped at row 19 (avoiding B20)")
                     break
         
         # B26: Formula - references B19 (city line)
@@ -779,7 +792,10 @@ def main():
     
     # Output filename
     base_name = os.path.splitext(os.path.basename(pdf_path))[0]
-    output_path = f"CMR_{base_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    output_path = f"cmr_output/CMR_{base_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    
+    # Create output directory if it doesn't exist
+    os.makedirs('cmr_output', exist_ok=True)
     
     try:
         print(f"--- Starting Extraction ---")
