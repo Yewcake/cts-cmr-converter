@@ -52,7 +52,7 @@ class PDFSearcher:
         if len(results) == 0:
             return False, f"No packing list found for Project {project_num} / PL {pl_num}\n\nTry:\n• Check numbers\n• Try PL number only\n• Browse manually"
         elif len(results) == 1:
-            return True, results[0]
+            return True, results[0]['path']
         else:
             return True, results
     
@@ -62,7 +62,7 @@ class PDFSearcher:
         year_folders = self._get_year_folders()
         
         for year_folder in year_folders:
-            project_folders = glob.glob(os.path.join(year_folder, f"*{project_num}*"))
+            project_folders = glob.glob(os.path.join(year_folder, f"{project_num} *"))
             
             for project_folder in project_folders:
                 transport_folder = os.path.join(project_folder, "Transport")
@@ -74,7 +74,7 @@ class PDFSearcher:
         if len(results) == 0:
             return False, f"No packing lists found in Project {project_num}\n\nTry:\n• Browse manually\n• Check if Transport folder exists"
         elif len(results) == 1:
-            return True, results[0]
+            return True, results[0]['path']
         else:
             return True, results
     
@@ -84,6 +84,7 @@ class PDFSearcher:
         year_folders = self._get_year_folders()
         
         for year_folder in year_folders:
+            # Get all project folders
             project_folders = [d for d in glob.glob(os.path.join(year_folder, "*")) 
                              if os.path.isdir(d)]
             
@@ -97,7 +98,7 @@ class PDFSearcher:
         if len(results) == 0:
             return False, f"No packing list {pl_num} found\n\nTry:\n• Check number\n• Browse manually"
         elif len(results) == 1:
-            return True, results[0]
+            return True, results[0]['path']
         else:
             return True, results
     
@@ -115,18 +116,26 @@ class PDFSearcher:
         return sorted(year_folders, reverse=True)
     
     def _find_packing_list_pdfs(self, folder, pl_num):
-        """Find PDFs containing packing list keywords and number"""
+        """Find PDFs containing packing list number - handles PL16008, PL 16008, Cl16008"""
         results = []
-        keywords = ['pl', 'packing list', 'packinglist', 'packing_list']
         
         try:
             for file in os.listdir(folder):
                 if file.lower().endswith('.pdf'):
-                    file_lower = file.lower()
-                    has_keyword = any(kw in file_lower for kw in keywords)
-                    has_number = str(pl_num) in file
+                    # Check for various patterns:
+                    # PL16008, PL 16008, Cl16008, pl16008, etc.
+                    file_upper = file.upper()
                     
-                    if has_keyword and has_number:
+                    # Look for the 5-digit number with common prefixes
+                    patterns = [
+                        f"PL{pl_num}",      # PL16008
+                        f"PL {pl_num}",     # PL 16008
+                        f"CL{pl_num}",      # Cl16008
+                        f"CL {pl_num}",     # Cl 16008
+                        pl_num              # Just the number
+                    ]
+                    
+                    if any(pattern in file_upper for pattern in patterns):
                         full_path = os.path.join(folder, file)
                         results.append({
                             'path': full_path,
@@ -139,16 +148,26 @@ class PDFSearcher:
         return results
     
     def _find_all_packing_lists(self, folder):
-        """Find all PDFs containing packing list keywords"""
+        """Find all PDFs that look like packing lists"""
         results = []
-        keywords = ['pl', 'packing list', 'packinglist', 'packing_list']
         
         try:
             for file in os.listdir(folder):
                 if file.lower().endswith('.pdf'):
-                    file_lower = file.lower()
+                    file_upper = file.upper()
                     
-                    if any(kw in file_lower for kw in keywords):
+                    # Look for files with PL or CL followed by 5 digits
+                    # Also check for common packing list keywords
+                    keywords = ['PL', 'CL', 'PACKING', 'PACKINGLIST']
+                    
+                    # Check if it has 5 consecutive digits (likely a PL number)
+                    has_pl_pattern = False
+                    for i in range(len(file) - 4):
+                        if file[i:i+5].isdigit():
+                            has_pl_pattern = True
+                            break
+                    
+                    if any(kw in file_upper for kw in keywords) or has_pl_pattern:
                         full_path = os.path.join(folder, file)
                         results.append({
                             'path': full_path,
@@ -168,14 +187,14 @@ class FileSelectionDialog:
         self.result = None
         self.dialog = Toplevel(parent)
         self.dialog.title("Select Packing List")
-        self.dialog.geometry("600x400")
+        self.dialog.geometry("700x450")
         self.dialog.transient(parent)
         self.dialog.grab_set()
         
         # Center
         self.dialog.update_idletasks()
-        x = parent.winfo_x() + (parent.winfo_width() - 600) // 2
-        y = parent.winfo_y() + (parent.winfo_height() - 400) // 2
+        x = parent.winfo_x() + (parent.winfo_width() - 700) // 2
+        y = parent.winfo_y() + (parent.winfo_height() - 450) // 2
         self.dialog.geometry(f"+{x}+{y}")
         
         # Title
@@ -198,8 +217,10 @@ class FileSelectionDialog:
         # Add files
         self.files = files
         for file in files:
-            display = f"{file['filename']}  (Modified: {file['modified'].strftime('%Y-%m-%d %H:%M')})"
+            display = f"{file['filename']}"
             self.listbox.insert(END, display)
+            self.listbox.insert(END, f"  Modified: {file['modified'].strftime('%Y-%m-%d %H:%M')}")
+            self.listbox.insert(END, "")  # Empty line
         
         self.listbox.selection_set(0)
         
@@ -222,8 +243,11 @@ class FileSelectionDialog:
     def on_select(self):
         selection = self.listbox.curselection()
         if selection:
-            self.result = self.files[selection[0]]['path']
-            self.dialog.destroy()
+            # Selection index / 3 because we have 3 lines per file
+            file_index = selection[0] // 3
+            if file_index < len(self.files):
+                self.result = self.files[file_index]['path']
+                self.dialog.destroy()
     
     def on_cancel(self):
         self.dialog.destroy()
@@ -298,7 +322,7 @@ class PDFtoCMRApp:
         self.root = root
         version = get_current_version()
         self.root.title(f"CTS CMR Converter v{version}")
-        self.root.geometry("750x750")
+        self.root.geometry("750x700")
         self.root.resizable(True, True)
         self.root.configure(bg=self.COLORS['background'])
         
@@ -409,7 +433,7 @@ class PDFtoCMRApp:
         folder_input = Frame(folder_frame, bg=self.COLORS['surface'])
         folder_input.pack(fill=X)
         
-        self.folder_var = StringVar(value="P:/Projects")
+        self.folder_var = StringVar(value="P:\\")
         folder_entry = Entry(folder_input, textvariable=self.folder_var,
                             font=("Segoe UI", 9), relief=SOLID, bd=1)
         folder_entry.pack(side=LEFT, fill=X, expand=True, ipady=5, padx=(0, 8))
@@ -418,7 +442,7 @@ class PDFtoCMRApp:
               bg="#e5e7eb", fg=self.COLORS['text_primary'], font=("Segoe UI", 8),
               relief=FLAT, padx=12, pady=5, cursor="hand2").pack(side=LEFT)
         
-        # Project number
+        # Project and PL number side by side
         fields_frame = Frame(search_content, bg=self.COLORS['surface'])
         fields_frame.pack(fill=X, pady=(0, 10))
         
@@ -524,31 +548,35 @@ class PDFtoCMRApp:
         self.root.update()
         
         # Search
-        if project_num and pl_num:
-            success, result = self.searcher.find_by_project_and_pl(project_num, pl_num)
-        elif project_num:
-            success, result = self.searcher.find_by_project_only(project_num)
-        else:
-            success, result = self.searcher.find_by_pl_only(pl_num)
-        
-        if not success:
-            self.set_status("Not found", "#dc2626")
-            messagebox.showerror("Not Found", result)
-            return
-        
-        # Handle result
-        if isinstance(result, list):
-            dialog = FileSelectionDialog(self.root, result)
-            selected_path = dialog.show()
-            
-            if selected_path:
-                self.selected_pdf = selected_path
-                self.do_conversion()
+        try:
+            if project_num and pl_num:
+                success, result = self.searcher.find_by_project_and_pl(project_num, pl_num)
+            elif project_num:
+                success, result = self.searcher.find_by_project_only(project_num)
             else:
-                self.set_status("Cancelled", self.COLORS['text_secondary'])
-        else:
-            self.selected_pdf = result
-            self.do_conversion()
+                success, result = self.searcher.find_by_pl_only(pl_num)
+            
+            if not success:
+                self.set_status("Not found", "#dc2626")
+                messagebox.showerror("Not Found", result)
+                return
+            
+            # Handle result
+            if isinstance(result, list):
+                dialog = FileSelectionDialog(self.root, result)
+                selected_path = dialog.show()
+                
+                if selected_path:
+                    self.selected_pdf = selected_path
+                    self.do_conversion()
+                else:
+                    self.set_status("Cancelled", self.COLORS['text_secondary'])
+            else:
+                self.selected_pdf = result
+                self.do_conversion()
+        except Exception as e:
+            self.set_status("Error", "#dc2626")
+            messagebox.showerror("Search Error", f"Search failed:\n\n{str(e)}")
     
     def convert_pdf(self):
         """Convert selected PDF"""
