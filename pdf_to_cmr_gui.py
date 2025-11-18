@@ -30,7 +30,7 @@ except ImportError:
 class PDFSearcher:
     """Smart PDF searcher for project and packing list numbers"""
     
-    def __init__(self, base_path="P:/Projects"):
+    def __init__(self, base_path="P:\\"):
         self.base_path = base_path
     
     def find_by_project_and_pl(self, project_num, pl_num):
@@ -39,7 +39,8 @@ class PDFSearcher:
         year_folders = self._get_year_folders()
         
         for year_folder in year_folders:
-            project_folders = glob.glob(os.path.join(year_folder, f"*{project_num}*"))
+            # Look for folders STARTING with project number
+            project_folders = glob.glob(os.path.join(year_folder, f"{project_num} *"))
             
             for project_folder in project_folders:
                 transport_folder = os.path.join(project_folder, "Transport")
